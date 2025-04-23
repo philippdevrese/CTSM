@@ -952,6 +952,9 @@ contains
      real(r8) :: frac                     ! temporary variable for ARNO subsurface runoff calculation
      real(r8) :: rel_moist                ! relative moisture, temporary variable
      real(r8) :: wtsub_vic                ! summation of hk*dzmm for layers in the third VIC layer
+     real(r8) :: frost_table_used(bounds%begc:bounds%endc) ! Frost table: either calculated or prescribed
+     real(r8) :: icefrac_used(bounds%begc:bounds%endc,1:nlevsoi) ! icfraction used to calculate drainage fluxes
+     real(r8) :: vol_ice_ref
      !-----------------------------------------------------------------------
 
      associate(                                                            & 
@@ -988,6 +991,9 @@ contains
           qcharge            =>    soilhydrology_inst%qcharge_col        , & ! Input:  [real(r8) (:)   ] aquifer recharge rate (mm/s)                      
           origflag           =>    soilhydrology_inst%origflag           , & ! Input:  logical
           h2osfcflag         =>    soilhydrology_inst%h2osfcflag         , & ! Input:  logical
+          pfflag             =>    soilhydrology_inst%pfflag             , & ! Input:  integer
+          h2osoi_ice_ref     =>    soilstate_inst%h2osoi_ice_col_ref     , & ! Input: [real(r8) (:,:) ] ice lens (kg/m2) [reference state]  
+          altmax_ref_indx    =>    soilstate_inst%altmax_ref_indx        , & ! Input: [integer  (:)   ] index of frost table depth (/) [reference state]         
           
           qflx_snwcp_liq     =>    waterflux_inst%qflx_snwcp_liq_col     , & ! Output: [real(r8) (:)   ] excess liquid h2o due to snow capping (outgoing) (mm H2O /s) [+]
           qflx_ice_runoff_xs =>    waterflux_inst%qflx_ice_runoff_xs_col , & ! Output: [real(r8) (:)   ] solid runoff from excess ice in soil (mm H2O /s) [+]
@@ -1016,6 +1022,13 @@ contains
 
              vol_ice = min(watsat(c,j), h2osoi_ice(c,j)/(dz(c,j)*denice))
              icefrac(c,j) = min(1._r8,vol_ice/watsat(c,j))          
+             if(pfflag == 1) then
+               vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
+               icefrac_used(c,j) = max(icefrac(c,j), &
+                                   min(1._r8,vol_ice_ref/watsat(c,j)))
+             else
+               icefrac_used(c,j) = icefrac(c,j)  
+             end if
           end do
        end do
 
@@ -1075,27 +1088,35 @@ contains
 
           frost_table(c)=z(c,k_frz)
 
+          if(pfflag == 1) then          
+            frost_table_used(c)=min(frost_table(c),z(c,altmax_ref_indx(c)))
+            k_frz = altmax_ref_indx(c)
+          else
+            frost_table_used(c)=frost_table(c)          
+          end if
+
           ! initialize perched water table to frost table, and qflx_drain_perched(c) to zero
-          zwt_perched(c)=frost_table(c)
+          zwt_perched(c)=frost_table_used(c)
           qflx_drain_perched(c) = 0._r8
 
           !===================  water table above frost table  =============================
           ! if water table is above frost table, do not use topmodel baseflow formulation
 
-          if (zwt(c) < frost_table(c) .and. t_soisno(c,k_frz) <= tfrz &
+          if (zwt(c) < frost_table_used(c) .and. t_soisno(c,k_frz) <= tfrz &
                .and. origflag == 0) then
              ! compute drainage from perched saturated region
              wtsub = 0._r8
              q_perch = 0._r8
              do k = jwt(c)+1, k_frz
-                imped=10._r8**(-e_ice*(0.5_r8*(icefrac(c,k)+icefrac(c,min(nlevsoi, k+1)))))
+                imped=10._r8**(-e_ice* &
+                     (0.5_r8*(icefrac_used(c,k)+icefrac_used(c,min(nlevsoi, k+1)))))
                 q_perch = q_perch + imped*hksat(c,k)*dzmm(c,k)
                 wtsub = wtsub + dzmm(c,k)
              end do
              if (wtsub > 0._r8) q_perch = q_perch/wtsub
 
              qflx_drain_perched(c) = q_perch_max * q_perch &
-                  *(frost_table(c) - zwt(c))
+                  *(frost_table_used(c) - zwt(c))
 
              ! remove drainage from perched saturated layers
              rsub_top_tot = -  qflx_drain_perched(c) * dtime
@@ -1164,14 +1185,15 @@ contains
                 wtsub = 0._r8
                 q_perch = 0._r8
                 do k = k_perch, k_frz
-                   imped=10._r8**(-e_ice*(0.5_r8*(icefrac(c,k)+icefrac(c,min(nlevsoi, k+1)))))
+                   imped=10._r8**(-e_ice* &
+                        (0.5_r8*(icefrac_used(c,k)+icefrac_used(c,min(nlevsoi, k+1)))))
                    q_perch = q_perch + imped*hksat(c,k)*dzmm(c,k)
                    wtsub = wtsub + dzmm(c,k)
                 end do
                 if (wtsub > 0._r8) q_perch = q_perch/wtsub
 
                 qflx_drain_perched(c) = q_perch_max * q_perch &
-                     *(frost_table(c) - zwt_perched(c))
+                     *(frost_table_used(c) - zwt_perched(c))
 
                 ! no perched water table drainage if using original formulation
                 if(origflag == 1) qflx_drain_perched(c) = 0._r8
@@ -1208,7 +1230,7 @@ contains
              icefracsum = 0._r8
              do j = max(jwt(c),1), nlevsoi
                 dzsum  = dzsum + dzmm(c,j)
-                icefracsum = icefracsum + icefrac(c,j) * dzmm(c,j)
+                icefracsum = icefracsum + icefrac_used(c,j) * dzmm(c,j)
              end do
              ! add ice impedance factor to baseflow
              if(origflag == 1) then 
@@ -1222,7 +1244,12 @@ contains
                 end if
              else
                 if (use_vichydro) then
-                   imped=10._r8**(-e_ice*min(1.0_r8,ice(c,nlayer)/max_moist(c,nlayer)))
+                  if(pfflag == 1) then 
+                    imped=10._r8**(-e_ice* & 
+                      min(1.0_r8,max(h2osoi_ice_ref(c,nlayer),ice(c,nlayer))/max_moist(c,nlayer)))
+                  else
+                    imped=10._r8**(-e_ice*min(1.0_r8,ice(c,nlayer)/max_moist(c,nlayer)))
+                  end if
                    dsmax_tmp(c) = Dsmax(c) * dtime/ secspday !mm/day->mm/dtime
                    rsub_top_max = dsmax_tmp(c)
                 else
@@ -1701,6 +1728,10 @@ contains
      real(r8) :: q_perch
      real(r8) :: q_perch_max
      real(r8) :: vol_ice
+     
+     real(r8) :: frost_table_used(bounds%begc:bounds%endc) ! Frost table: either calculated or prescribed
+     real(r8) :: icefrac_used(bounds%begc:bounds%endc,1:nlevsoi) ! icfraction used to calculate drainage fluxes
+     real(r8) :: vol_ice_ref
      !-----------------------------------------------------------------------
 
      associate(                                                            & 
@@ -1717,6 +1748,10 @@ contains
           zwt                =>    soilhydrology_inst%zwt_col            , & ! Input:  [real(r8) (:)   ] water table depth (m)                             
           zwt_perched        =>    soilhydrology_inst%zwt_perched_col    , & ! Input:  [real(r8) (:)   ] perched water table depth (m)                     
           origflag           =>    soilhydrology_inst%origflag           , & ! Input:  logical
+
+          pfflag             =>    soilhydrology_inst%pfflag             , & ! Input:  integer
+          h2osoi_ice_ref     =>    soilstate_inst%h2osoi_ice_col_ref     , & ! Input: [real(r8) (:,:) ] ice lens (kg/m2) [reference state]  
+          altmax_ref_indx    =>    soilstate_inst%altmax_ref_indx        , & ! Input: [integer  (:)   ] index of frost table depth (/) [reference state]
           
           qflx_drain_perched =>    waterflux_inst%qflx_drain_perched_col , & ! Output: [real(r8) (:)   ] perched wt sub-surface runoff (mm H2O /s)         
 
@@ -1737,8 +1772,22 @@ contains
 
              vol_ice = min(watsat(c,j), h2osoi_ice(c,j)/(dz(c,j)*denice))
              icefrac(c,j) = min(1._r8,vol_ice/watsat(c,j))          
+             if(pfflag == 1) then
+               vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
+               icefrac_used(c,j) = max(icefrac(c,j), &
+                                   min(1._r8,vol_ice_ref/watsat(c,j)))
+             else
+               icefrac_used(c,j) = icefrac(c,j)  
+             end if
           end do
        end do
+
+
+       if(pfflag == 1) then          
+         frost_table_used(c)=min(frost_table(c),z(c,altmax_ref_indx(c)))
+       else
+         frost_table_used(c)=frost_table(c)          
+       end if
 
        ! compute drainage from perched saturated region
        do fc = 1, num_hydrologyc
@@ -1746,14 +1795,15 @@ contains
 
           qflx_drain_perched(c) = 0._r8
 
-          if ((frost_table(c) > zwt_perched(c)) .and. origflag == 0) then
+          if ((frost_table_used(c) > zwt_perched(c)) .and. origflag == 0) then
 
              !  specify maximum drainage rate
              q_perch_max = 1.e-5_r8 * sin(col%topo_slope(c) * (rpi/180._r8))
              
              ! calculate frost table and perched water table locations
              do k=1, nlevsoi
-                if (frost_table(c) >= zi(c,k-1) .and. frost_table(c) <= zi(c,k)) then
+                if (frost_table_used(c) >= zi(c,k-1) .and. &
+                    frost_table_used(c) <= zi(c,k)) then
                    k_frz=k
                    exit
                 endif
@@ -1769,14 +1819,15 @@ contains
              wtsub = 0._r8
              q_perch = 0._r8
              do k = k_perch, k_frz
-                imped=10._r8**(-e_ice*(0.5_r8*(icefrac(c,k)+icefrac(c,min(nlevsoi, k+1)))))
+                imped=10._r8**(-e_ice* &
+                     (0.5_r8*(icefrac_used(c,k)+icefrac_used(c,min(nlevsoi, k+1)))))
                 q_perch = q_perch + imped*hksat(c,k)*dzmm(c,k)
                 wtsub = wtsub + dzmm(c,k)
              end do
              if (wtsub > 0._r8) q_perch = q_perch/wtsub
              
              qflx_drain_perched(c) = q_perch_max * q_perch &
-                  *(frost_table(c) - zwt_perched(c))
+                  *(frost_table_used(c) - zwt_perched(c))
              
              ! no perched water table drainage if using original formulation
              if(origflag == 1) qflx_drain_perched(c) = 0._r8
@@ -1983,6 +2034,9 @@ contains
      real(r8) :: wtsub_vic                ! summation of hk*dzmm for layers in the third VIC layer
      integer :: g
      real(r8), parameter :: n_baseflow = 1 !drainage power law exponent
+     
+     real(r8) :: icefrac_used(bounds%begc:bounds%endc,1:nlevsoi) ! icfraction used to calculate drainage fluxes
+     real(r8) :: vol_ice_ref
      !-----------------------------------------------------------------------
 
      associate(                                                            & 
@@ -2016,6 +2070,8 @@ contains
           qcharge            =>    soilhydrology_inst%qcharge_col        , & ! Input:  [real(r8) (:)   ] aquifer recharge rate (mm/s)                      
           origflag           =>    soilhydrology_inst%origflag           , & ! Input:  logical
           h2osfcflag         =>    soilhydrology_inst%h2osfcflag         , & ! Input:  logical
+          pfflag             =>    soilhydrology_inst%pfflag             , & ! Input:  integer
+          h2osoi_ice_ref     =>    soilstate_inst%h2osoi_ice_col_ref     , & ! Input: [real(r8) (:,:) ] ice lens (kg/m2) [reference state]  
           
           qflx_snwcp_liq     =>    waterflux_inst%qflx_snwcp_liq_col     , & ! Output: [real(r8) (:)   ] excess rainfall due to snow capping (mm H2O /s) [+]
           qflx_ice_runoff_xs =>    waterflux_inst%qflx_ice_runoff_xs_col , & ! Output: [real(r8) (:)   ] solid runoff from excess ice in soil (mm H2O /s) [+]
@@ -2042,6 +2098,15 @@ contains
 
              vol_ice = min(watsat(c,j), h2osoi_ice(c,j)/(dz(c,j)*denice))
              icefrac(c,j) = min(1._r8,vol_ice/watsat(c,j))          
+
+             if(pfflag == 1) then
+               vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
+               icefrac_used(c,j) = max(icefrac(c,j), &
+                                   min(1._r8,vol_ice_ref/watsat(c,j)))
+             else
+               icefrac_used(c,j) = icefrac(c,j)  
+             end if
+        
           end do
        end do
 
@@ -2081,7 +2146,7 @@ contains
           icefracsum = 0._r8
           do j = max(jwt(c),1), nlevsoi
              dzsum  = dzsum + dzmm(c,j)
-             icefracsum = icefracsum + icefrac(c,j) * dzmm(c,j)
+             icefracsum = icefracsum + icefrac_used(c,j) * dzmm(c,j)
           end do
           imped=10._r8**(-e_ice*(icefracsum/dzsum))
           !@@

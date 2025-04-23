@@ -156,6 +156,10 @@ contains
     integer            :: begp, endp
     integer            :: begc, endc
     integer            :: begg, endg
+       
+    real(r8) ,pointer  :: altmax_in  (:)
+    real(r8) ,pointer  :: soilice_in (:,:)  
+
     !-----------------------------------------------------------------------
 
     begp = bounds%begp; endp= bounds%endp
@@ -292,6 +296,30 @@ contains
        soilstate_inst%wtfact_col(c) = gti(g)
     end do
     deallocate(gti)
+
+    allocate(soilice_in(begg:endg,nlevgrnd))
+    call ncd_io(ncid=ncid, varname='SOILICE_REF', flag='read', data=soilice_in, dim1name=grlnd, readvar=readvar)
+    if (.not. readvar) then
+      call endrun(msg=' ERROR: SOILICE_REF'//errMsg(sourcefile, __LINE__)) 
+    end if
+    do c = begc, endc
+      g = col%gridcell(c)
+      do j = 1, nlevsoi
+        soilstate_inst%h2osoi_ice_ref(c,j) = soilice_in(g,j)
+      end do
+    end do
+    deallocate(soilice_in)
+
+    allocate(altmax_in(begg:endg))
+    call ncd_io(ncid=ncid, varname='ALTMAX_REF', flag='read', data=altmax_in, dim1name=grlnd, readvar=readvar)
+    if (.not. readvar) then
+      call endrun(msg=' ERROR: ALTMAX_REF'//errMsg(sourcefile, __LINE__)) 
+    end if
+    do c = begc, endc
+      g = col%gridcell(c)
+      soilstate_inst%altmax_ref_indx(c) = altmax_in(g)
+    end do
+    deallocate(altmax_in)
 
     ! Close file
 
