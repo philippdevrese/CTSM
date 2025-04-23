@@ -77,6 +77,9 @@ module SoilStateType
      real(r8), pointer :: k_soil_root_patch    (:,:) ! patch soil-root interface conductance [mm/s]
      real(r8), pointer :: root_conductance_patch(:,:) ! patch root conductance [mm/s]
      real(r8), pointer :: soil_conductance_patch(:,:) ! patch soil conductance [mm/s]
+     
+     real(r8), pointer :: h2osoi_ice_col_ref   (:,:) ! ice content reference state
+     integer , pointer :: altmax_ref_indx      (:)   ! altmax index reference state   
 
    contains
 
@@ -175,6 +178,11 @@ contains
     allocate(this%nsw_col              (begc:endc,1:nlevgrnd))          ; this%nsw_col              (:,:) = nan
     allocate(this%alphasw_col          (begc:endc,1:nlevgrnd))          ; this%alphasw_col          (:,:) = nan
     allocate(this%watres_col           (begc:endc,1:nlevgrnd))          ; this%watres_col           (:,:) = nan
+
+    allocate(this%h2osoi_ice_col_ref   (begc:endc,1:nlevgrnd))          ; this%h2osoi_ice_col_ref   (:,:) = 0._r8
+    allocate(this%altmax_ref_indx      (begc:endc))                     ; this%altmax_ref_indx      (:)   = nlevgrnd
+
+    
   end subroutine InitAllocate
 
   !-----------------------------------------------------------------------
