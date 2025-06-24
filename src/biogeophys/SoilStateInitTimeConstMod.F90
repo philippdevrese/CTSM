@@ -363,7 +363,7 @@ contains
     do c = begc, endc
       g = col%gridcell(c)
       do j = 1, nlevsoi
-        soilstate_inst%h2osoi_ice_ref(c,j) = soilice_in(g,j)
+        soilstate_inst%h2osoi_ice_col_ref(c,j) = soilice_in(g,j)
       end do
     end do
     deallocate(soilice_in)
