@@ -535,6 +535,7 @@ contains
     real(r8) :: zwtmm(bounds%begc:bounds%endc)               ! water table depth [mm]
     real(r8) :: imped(bounds%begc:bounds%endc,1:nlevsoi)             
     real(r8) :: vol_ice(bounds%begc:bounds%endc,1:nlevsoi)
+    real(r8) :: vol_ice_ref
     real(r8) :: z_mid
     real(r8) :: vwc_zwt(bounds%begc:bounds%endc)
     real(r8) :: vwc_liq(bounds%begc:bounds%endc,1:nlevsoi+1) ! liquid volumetric water content
@@ -570,6 +571,9 @@ contains
          h2osoi_liq        =>    waterstate_inst%h2osoi_liq_col     , & ! Input:  [real(r8) (:,:) ]  liquid water (kg/m2)                            
          h2osoi_vol        =>    waterstate_inst%h2osoi_vol_col     , & ! Input:  [real(r8) (:,:) ]  volumetric soil water (0<=h2osoi_vol<=watsat) [m3/m3]
 
+         pfflag             =>    soilhydrology_inst%pfflag         , & ! Input:  integer
+         h2osoi_ice_ref     =>    soilstate_inst%h2osoi_ice_col_ref , & ! Input: [real(r8) (:,:) ] ice lens (kg/m2) [reference state]
+
          qflx_deficit      =>    waterflux_inst%qflx_deficit_col    , & ! Input:  [real(r8) (:)   ]  water deficit to keep non-negative liquid water content
          qflx_infl         =>    waterflux_inst%qflx_infl_col       , & ! Input:  [real(r8) (:)   ]  infiltration (mm H2O /s)                          
 
@@ -596,8 +600,14 @@ contains
             zimm(c,j) = zi(c,j)*1.e3_r8
 
             ! calculate icefrac up here
-            vol_ice(c,j) = min(watsat(c,j), h2osoi_ice(c,j)/(dz(c,j)*denice))
-            icefrac(c,j) = min(1._r8,vol_ice(c,j)/watsat(c,j))
+            if(pfflag == 2) then
+              vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
+
+              icefrac(c,j) = min(1._r8,max(vol_ice(c,j), vol_ice_ref)/watsat(c,j))
+
+            else
+              icefrac(c,j) = min(1._r8,vol_ice(c,j)/watsat(c,j))
+            end if
             vwc_liq(c,j) = max(h2osoi_liq(c,j),1.0e-6_r8)/(dz(c,j)*denh2o)
          end do
       end do
@@ -1437,7 +1447,7 @@ contains
     use shr_const_mod        , only : SHR_CONST_TKFRZ, SHR_CONST_LATICE, SHR_CONST_G
     use abortutils           , only : endrun
     use decompMod            , only : bounds_type
-    use clm_varcon           , only : e_ice
+    use clm_varcon           , only : e_ice, denice
     use clm_varpar           , only : nlevsoi
     use SoilWaterRetentionCurveMod, only : soil_water_retention_curve_type
     use SoilStateType        , only : soilstate_type
@@ -1467,6 +1477,9 @@ contains
  real(r8) :: s2(1:nlayers)                     ! "s" at layer node
     real(r8) :: dsmpds                         !temporary variable
     real(r8) :: dhkds                          !temporary variable
+    real(r8) :: vol_ice_ref                    !temporary variable
+ real(r8) :: icefrac_used(1:nlayers)           !fraction of ice as maximum of simulated and prescribed value
+
     character(len=32)  :: subname = 'calculate_hydraulic_properties'     ! subroutine name   
     !-----------------------------------------------------------------------
 
@@ -1474,7 +1487,12 @@ contains
 !     entire arrays, but due to pgi bug, removed array section selections
 !     using array sections allowed consistent 1d indexing throughout
     associate(&
-         icefrac           =>    soilhydrology_inst%icefrac_col     , & ! Input:  [real(r8) (:,:) ]  fraction of ice                                 
+         dz                =>    col%dz                             , & ! Input:  [real(r8) (:,:) ] layer depth (m)
+
+         icefrac           =>    soilhydrology_inst%icefrac_col     , & ! Input:  [real(r8) (:,:) ]  fraction of ice
+         pfflag            =>    soilhydrology_inst%pfflag          , & ! Input:  integer
+         h2osoi_ice_ref    =>    soilstate_inst%h2osoi_ice_col_ref  , & ! Input: [real(r8) (:,:) ] ice lens (kg/m2) [reference state]
+
          watsat            =>    soilstate_inst%watsat_col          , & ! Input:  [real(r8) (:,:) ]  volumetric soil water at saturation (porosity)  
          smp_l             =>    soilstate_inst%smp_l_col           , & ! Input:  [real(r8) (:,:) ]  soil matrix potential [mm]                      
          hk_l              =>    soilstate_inst%hk_l_col              & ! Input:  [real(r8) (:,:) ]  hydraulic conductivity (mm/s)                   
@@ -1497,14 +1515,26 @@ contains
             s2(j) = max(0.01_r8, s2(j))
          enddo
 
+
+         do j = 1, nlayers
+           if(pfflag == 2) then
+             vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
+             icefrac_used(j) = max(icefrac(c,j), &
+                               min(1._r8,vol_ice_ref/watsat(c,j)))
+           else
+             icefrac_used(j) = icefrac(c,j)
+           end if
+         end do
+
+
          do j = 1, nlayers
             ! s1 is interface value, s2 is node value
             if(j==nlayers)then
              s1 = s2(j)
-             call IceImpedance(icefrac(c,j), e_ice, imped(j) )
+             call IceImpedance(icefrac_used(j), e_ice, imped(j) )
             else
              s1 = 0.5_r8 * (s2(j) + s2(j+1))
-             call IceImpedance(0.5_r8*(icefrac(c,j) + icefrac(c,j+1)), e_ice, imped(j) )
+             call IceImpedance(0.5_r8*(icefrac_used(j) + icefrac_used(j+1)), e_ice, imped(j) )
             endif
 
   ! impose constraints on relative saturation at the layer interface

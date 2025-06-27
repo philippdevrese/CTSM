@@ -1022,7 +1022,7 @@ contains
 
              vol_ice = min(watsat(c,j), h2osoi_ice(c,j)/(dz(c,j)*denice))
              icefrac(c,j) = min(1._r8,vol_ice/watsat(c,j))          
-             if(pfflag == 1) then
+             if(pfflag == 1 .or. pfflag == 2) then
                vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
                icefrac_used(c,j) = max(icefrac(c,j), &
                                    min(1._r8,vol_ice_ref/watsat(c,j)))
@@ -1088,7 +1088,7 @@ contains
 
           frost_table(c)=z(c,k_frz)
 
-          if(pfflag == 1) then          
+          if(pfflag == 1 .or. pfflag == 2) then
             frost_table_used(c)=min(frost_table(c),z(c,altmax_ref_indx(c)))
             k_frz = altmax_ref_indx(c)
           else
@@ -1244,7 +1244,7 @@ contains
                 end if
              else
                 if (use_vichydro) then
-                  if(pfflag == 1) then 
+                  if(pfflag == 1 .or. pfflag == 2) then
                     imped=10._r8**(-e_ice* & 
                       min(1.0_r8,max(h2osoi_ice_ref(c,nlayer),ice(c,nlayer))/max_moist(c,nlayer)))
                   else
@@ -1772,7 +1772,7 @@ contains
 
              vol_ice = min(watsat(c,j), h2osoi_ice(c,j)/(dz(c,j)*denice))
              icefrac(c,j) = min(1._r8,vol_ice/watsat(c,j))          
-             if(pfflag == 1) then
+             if(pfflag == 1 .or. pfflag == 2) then
                vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
                icefrac_used(c,j) = max(icefrac(c,j), &
                                    min(1._r8,vol_ice_ref/watsat(c,j)))
@@ -1783,7 +1783,7 @@ contains
        end do
 
 
-       if(pfflag == 1) then          
+       if(pfflag == 1 .or. pfflag == 2) then
          frost_table_used(c)=min(frost_table(c),z(c,altmax_ref_indx(c)))
        else
          frost_table_used(c)=frost_table(c)          
@@ -2099,7 +2099,7 @@ contains
              vol_ice = min(watsat(c,j), h2osoi_ice(c,j)/(dz(c,j)*denice))
              icefrac(c,j) = min(1._r8,vol_ice/watsat(c,j))          
 
-             if(pfflag == 1) then
+             if(pfflag == 1 .or. pfflag == 2) then
                vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
                icefrac_used(c,j) = max(icefrac(c,j), &
                                    min(1._r8,vol_ice_ref/watsat(c,j)))
