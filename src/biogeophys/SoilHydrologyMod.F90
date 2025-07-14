@@ -1021,13 +1021,17 @@ contains
              dzmm(c,j) = dz(c,j)*1.e3_r8
 
              vol_ice = min(watsat(c,j), h2osoi_ice(c,j)/(dz(c,j)*denice))
-             icefrac(c,j) = min(1._r8,vol_ice/watsat(c,j))          
-             if(pfflag == 1 .or. pfflag == 2) then
+             icefrac(c,j) = min(1._r8,vol_ice/watsat(c,j))
+             if(pfflag == 0) then
+               icefrac_used(c,j) = icefrac(c,j)
+             else
                vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
                icefrac_used(c,j) = max(icefrac(c,j), &
                                    min(1._r8,vol_ice_ref/watsat(c,j)))
-             else
-               icefrac_used(c,j) = icefrac(c,j)  
+
+             end if
+             if ((pfflag == 3 .or. pfflag == 4) .and. j > INT(altmax_ref_indx(c))) then
+               icefrac_used(c,j) = 1._r8
              end if
           end do
        end do
@@ -1088,11 +1092,11 @@ contains
 
           frost_table(c)=z(c,k_frz)
 
-          if(pfflag == 1 .or. pfflag == 2) then
-            frost_table_used(c)=min(frost_table(c),z(c,altmax_ref_indx(c)))
-            k_frz = altmax_ref_indx(c)
+          if(pfflag == 0) then
+            frost_table_used(c)=frost_table(c)
           else
-            frost_table_used(c)=frost_table(c)          
+            frost_table_used(c)=min(frost_table(c),z(c,INT(altmax_ref_indx(c))))
+            k_frz = min(k_frz, INT(altmax_ref_indx(c)))
           end if
 
           ! initialize perched water table to frost table, and qflx_drain_perched(c) to zero
@@ -1244,12 +1248,15 @@ contains
                 end if
              else
                 if (use_vichydro) then
-                  if(pfflag == 1 .or. pfflag == 2) then
-                    imped=10._r8**(-e_ice* & 
-                      min(1.0_r8,max(h2osoi_ice_ref(c,nlayer),ice(c,nlayer))/max_moist(c,nlayer)))
-                  else
-                    imped=10._r8**(-e_ice*min(1.0_r8,ice(c,nlayer)/max_moist(c,nlayer)))
-                  end if
+                   if(pfflag == 0) then
+                     imped=10._r8**(-e_ice*min(1.0_r8,ice(c,nlayer)/max_moist(c,nlayer)))
+                   else
+                     imped=10._r8**(-e_ice* &
+                       min(1.0_r8,max(h2osoi_ice_ref(c,nlayer),ice(c,nlayer))/max_moist(c,nlayer)))
+                   end if
+                   if ((pfflag == 3 .or. pfflag == 4) .and. nlayer > INT(altmax_ref_indx(c))) then
+                     imped=10._r8**(-e_ice)
+                   end if
                    dsmax_tmp(c) = Dsmax(c) * dtime/ secspday !mm/day->mm/dtime
                    rsub_top_max = dsmax_tmp(c)
                 else
@@ -1771,22 +1778,25 @@ contains
              dzmm(c,j) = dz(c,j)*1.e3_r8
 
              vol_ice = min(watsat(c,j), h2osoi_ice(c,j)/(dz(c,j)*denice))
-             icefrac(c,j) = min(1._r8,vol_ice/watsat(c,j))          
-             if(pfflag == 1 .or. pfflag == 2) then
+             icefrac(c,j) = min(1._r8,vol_ice/watsat(c,j))
+             if(pfflag == 0) then
+               icefrac_used(c,j) = icefrac(c,j)
+             else
                vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
                icefrac_used(c,j) = max(icefrac(c,j), &
                                    min(1._r8,vol_ice_ref/watsat(c,j)))
-             else
-               icefrac_used(c,j) = icefrac(c,j)  
+             end if
+             if ((pfflag == 3 .or. pfflag == 4) .and. j > INT(altmax_ref_indx(c))) then
+               icefrac_used(c,j) = 1._r8
              end if
           end do
        end do
 
 
-       if(pfflag == 1 .or. pfflag == 2) then
-         frost_table_used(c)=min(frost_table(c),z(c,altmax_ref_indx(c)))
+       if(pfflag == 0) then
+         frost_table_used(c)=frost_table(c)
        else
-         frost_table_used(c)=frost_table(c)          
+         frost_table_used(c)=min(frost_table(c),z(c,INT(altmax_ref_indx(c))))
        end if
 
        ! compute drainage from perched saturated region
@@ -2072,6 +2082,7 @@ contains
           h2osfcflag         =>    soilhydrology_inst%h2osfcflag         , & ! Input:  logical
           pfflag             =>    soilhydrology_inst%pfflag             , & ! Input:  integer
           h2osoi_ice_ref     =>    soilstate_inst%h2osoi_ice_col_ref     , & ! Input: [real(r8) (:,:) ] ice lens (kg/m2) [reference state]  
+          altmax_ref_indx    =>    soilstate_inst%altmax_ref_indx        , & ! Input: [integer  (:)   ] index of frost table depth (/) [reference state]
           
           qflx_snwcp_liq     =>    waterflux_inst%qflx_snwcp_liq_col     , & ! Output: [real(r8) (:)   ] excess rainfall due to snow capping (mm H2O /s) [+]
           qflx_ice_runoff_xs =>    waterflux_inst%qflx_ice_runoff_xs_col , & ! Output: [real(r8) (:)   ] solid runoff from excess ice in soil (mm H2O /s) [+]
@@ -2099,14 +2110,16 @@ contains
              vol_ice = min(watsat(c,j), h2osoi_ice(c,j)/(dz(c,j)*denice))
              icefrac(c,j) = min(1._r8,vol_ice/watsat(c,j))          
 
-             if(pfflag == 1 .or. pfflag == 2) then
+             if(0) then
+               icefrac_used(c,j) = icefrac(c,j)
+             else
                vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
                icefrac_used(c,j) = max(icefrac(c,j), &
                                    min(1._r8,vol_ice_ref/watsat(c,j)))
-             else
-               icefrac_used(c,j) = icefrac(c,j)  
              end if
-        
+             if ((pfflag == 3 .or. pfflag == 4) .and. j > INT(altmax_ref_indx(c))) then
+               icefrac_used(c,j) = 1._r8
+             end if
           end do
        end do
 

@@ -571,7 +571,7 @@ contains
             atm2lnd_inst, canopystate_inst,                                                 &
             energyflux_inst, frictionvel_inst, soilstate_inst, solarabs_inst, surfalb_inst, &
             temperature_inst, waterflux_inst, waterstate_inst, ch4_inst, ozone_inst, photosyns_inst, &
-            humanindex_inst, soil_water_retention_curve, &
+            humanindex_inst, soilhydrology_inst, soil_water_retention_curve, &
             downreg_patch = downreg_patch(bounds_clump%begp:bounds_clump%endp), &
             leafn_patch = leafn_patch(bounds_clump%begp:bounds_clump%endp), &
             froot_carbon = froot_carbon(bounds_clump%begp:bounds_clump%endp), &

@@ -135,7 +135,7 @@ contains
        clm_fates, nc, atm2lnd_inst, canopystate_inst,                                    &
        energyflux_inst, frictionvel_inst, soilstate_inst, solarabs_inst, surfalb_inst,   &
        temperature_inst, waterflux_inst, waterstate_inst, ch4_inst, ozone_inst, photosyns_inst, &
-       humanindex_inst, soil_water_retention_curve, &
+       humanindex_inst, soilhydrology_inst, soil_water_retention_curve, &
        downreg_patch, leafn_patch, froot_carbon, croot_carbon)
     !
     ! !DESCRIPTION:
@@ -179,6 +179,7 @@ contains
                                     Wet_Bulb, Wet_BulbS, HeatIndex, AppTemp, &
                                     swbgt, hmdex, dis_coi, dis_coiS, THIndex, &
                                     SwampCoolEff, KtoC, VaporPres
+    use SoilHydrologyType , only  : soilhydrology_type  
     use SoilWaterRetentionCurveMod, only : soil_water_retention_curve_type
     !
     ! !ARGUMENTS:
@@ -201,6 +202,7 @@ contains
     class(ozone_base_type)                 , intent(inout)         :: ozone_inst
     type(photosyns_type)                   , intent(inout)         :: photosyns_inst
     type(humanindex_type)                  , intent(inout)         :: humanindex_inst
+    type(soilhydrology_type)               , intent(in)            :: soilhydrology_inst
     class(soil_water_retention_curve_type) , intent(in)            :: soil_water_retention_curve
     real(r8), intent(in) :: downreg_patch(bounds%begp:) ! fractional reduction in GPP due to N limitation (dimensionless)
     real(r8), intent(in) :: leafn_patch(bounds%begp:)   ! leaf N (gN/m2)
@@ -659,7 +661,8 @@ contains
             soilstate_inst=soilstate_inst,     &
             temperature_inst=temperature_inst, &
             waterstate_inst=waterstate_inst,   &
-              soil_water_retention_curve=soil_water_retention_curve)
+            soilhydrology_inst=soilhydrology_inst,   &
+            soil_water_retention_curve=soil_water_retention_curve)
 
      
       end if

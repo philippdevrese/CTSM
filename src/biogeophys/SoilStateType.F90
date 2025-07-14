@@ -79,7 +79,7 @@ module SoilStateType
      real(r8), pointer :: soil_conductance_patch(:,:) ! patch soil conductance [mm/s]
      real(r8), pointer :: h2osoi_ice_col_ref   (:,:) ! ice content reference state
 
-     integer , pointer :: altmax_ref_indx      (:)   ! altmax index reference state
+     real(r8), pointer :: altmax_ref_indx      (:)   ! altmax index reference state
  
    contains
 
@@ -191,6 +191,7 @@ contains
     !
     ! !USES:
     use histFileMod   , only: hist_addfld1d, hist_addfld2d, no_snow_normal
+    use clm_varpar    , only : nlevgrnd
     !
     ! !ARGUMENTS:
     class(soilstate_type) :: this
@@ -331,6 +332,16 @@ contains
          avgflag='A', long_name='dry surface layer thickness', &
          ptr_col=this%dsl_col)
 
+    this%altmax_ref_indx(begc:endc) = nlevgrnd
+    call hist_addfld1d (fname='ALTMAX_REF_INDX',  units='/',  &
+         avgflag='A', long_name='Max. layer index of refence ALT', &
+         ptr_col=this%altmax_ref_indx)
+
+    this%h2osoi_ice_col_ref(begc:endc,:) = 0._r8
+    call hist_addfld2d (fname='SOILICE_REF', units='kg/m2', type2d='levgrnd', &
+         avgflag='A', long_name='soil ice reference', &
+         ptr_col=this%h2osoi_ice_col_ref)
+
   end subroutine InitHistory
 
   !-----------------------------------------------------------------------
@@ -380,7 +391,7 @@ contains
     call restartvar(ncid=ncid, flag=flag, varname='DSL', xtype=ncd_double,  &
          dim1name='column', long_name='dsl thickness', units='mm', &
          interpinic_flag='interp', readvar=readvar, data=this%dsl_col)
-    
+
     call restartvar(ncid=ncid, flag=flag, varname='SOILRESIS', xtype=ncd_double,  &
          dim1name='column', long_name='soil resistance', units='s/m', &
          interpinic_flag='interp', readvar=readvar, data=this%soilresis_col)
@@ -417,7 +428,15 @@ contains
             this%rootfr_patch(bounds%begp:bounds%endp,1:nlevgrnd), 'water')
             call init_vegrootfr(bounds, nlevsoi, nlevgrnd, &
             this%crootfr_patch(bounds%begp:bounds%endp,1:nlevgrnd), 'carbon')
-         end if
+     end if
+
+    call restartvar(ncid=ncid, flag=flag, varname='ALTMAX_REF_INDX', xtype=ncd_double,  &
+         dim1name='column', long_name='Max. layer index of refence ALT', units='/', &
+         interpinic_flag='interp', readvar=readvar, data=this%altmax_ref_indx)
+
+    call restartvar(ncid=ncid, flag=flag, varname='SOILICE_REF', xtype=ncd_double,  &
+         dim1name='column', long_name='soil ice reference', units='kg/m2', &
+         interpinic_flag='interp', readvar=readvar, data=this%h2osoi_ice_col_ref)
     
   end subroutine Restart
 

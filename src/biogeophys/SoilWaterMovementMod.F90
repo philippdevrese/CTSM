@@ -573,6 +573,7 @@ contains
 
          pfflag             =>    soilhydrology_inst%pfflag         , & ! Input:  integer
          h2osoi_ice_ref     =>    soilstate_inst%h2osoi_ice_col_ref , & ! Input: [real(r8) (:,:) ] ice lens (kg/m2) [reference state]
+         altmax_ref_indx    =>    soilstate_inst%altmax_ref_indx    , & ! Input: [integer  (:)   ] index of frost table depth (/) [reference state]
 
          qflx_deficit      =>    waterflux_inst%qflx_deficit_col    , & ! Input:  [real(r8) (:)   ]  water deficit to keep non-negative liquid water content
          qflx_infl         =>    waterflux_inst%qflx_infl_col       , & ! Input:  [real(r8) (:)   ]  infiltration (mm H2O /s)                          
@@ -600,13 +601,15 @@ contains
             zimm(c,j) = zi(c,j)*1.e3_r8
 
             ! calculate icefrac up here
-            if(pfflag == 2) then
+            if(pfflag == 2 .or. pfflag == 4) then
               vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
 
               icefrac(c,j) = min(1._r8,max(vol_ice(c,j), vol_ice_ref)/watsat(c,j))
-
             else
               icefrac(c,j) = min(1._r8,vol_ice(c,j)/watsat(c,j))
+            end if
+            if(pfflag == 4 .and. j > INT(altmax_ref_indx(c))) then
+              icefrac(c,j) = 1._r8
             end if
             vwc_liq(c,j) = max(h2osoi_liq(c,j),1.0e-6_r8)/(dz(c,j)*denh2o)
          end do
@@ -1492,6 +1495,7 @@ contains
          icefrac           =>    soilhydrology_inst%icefrac_col     , & ! Input:  [real(r8) (:,:) ]  fraction of ice
          pfflag            =>    soilhydrology_inst%pfflag          , & ! Input:  integer
          h2osoi_ice_ref    =>    soilstate_inst%h2osoi_ice_col_ref  , & ! Input: [real(r8) (:,:) ] ice lens (kg/m2) [reference state]
+         altmax_ref_indx   =>    soilstate_inst%altmax_ref_indx     , & ! Input: [integer  (:)   ] index of frost table depth (/) [reference state]
 
          watsat            =>    soilstate_inst%watsat_col          , & ! Input:  [real(r8) (:,:) ]  volumetric soil water at saturation (porosity)  
          smp_l             =>    soilstate_inst%smp_l_col           , & ! Input:  [real(r8) (:,:) ]  soil matrix potential [mm]                      
@@ -1517,12 +1521,15 @@ contains
 
 
          do j = 1, nlayers
-           if(pfflag == 2) then
+           if(pfflag == 2 .or. pfflag == 4) then
              vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
              icefrac_used(j) = max(icefrac(c,j), &
                                min(1._r8,vol_ice_ref/watsat(c,j)))
            else
              icefrac_used(j) = icefrac(c,j)
+           end if
+           if(pfflag == 4 .and. j > INT(altmax_ref_indx(c))) then
+             icefrac_used(j) = 1._r8
            end if
          end do
 

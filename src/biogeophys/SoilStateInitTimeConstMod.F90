@@ -297,10 +297,10 @@ contains
     end do
     deallocate(gti)
 
-    allocate(soilice_in(begg:endg,nlevgrnd))
+    allocate(soilice_in(begg:endg,nlevsoi))
     call ncd_io(ncid=ncid, varname='SOILICE_REF', flag='read', data=soilice_in, dim1name=grlnd, readvar=readvar)
     if (.not. readvar) then
-      call endrun(msg=' ERROR: SOILICE_REF'//errMsg(sourcefile, __LINE__)) 
+      call endrun(msg=' ERROR: SOILICE_REF NOT on surfdata file'//errMsg(sourcefile, __LINE__))
     end if
     do c = begc, endc
       g = col%gridcell(c)
@@ -313,7 +313,7 @@ contains
     allocate(altmax_in(begg:endg))
     call ncd_io(ncid=ncid, varname='ALTMAX_REF', flag='read', data=altmax_in, dim1name=grlnd, readvar=readvar)
     if (.not. readvar) then
-      call endrun(msg=' ERROR: ALTMAX_REF'//errMsg(sourcefile, __LINE__)) 
+      call endrun(msg=' ERROR: ALTMAX_REF NOT on surfdata file'//errMsg(sourcefile, __LINE__))
     end if
     do c = begc, endc
       g = col%gridcell(c)

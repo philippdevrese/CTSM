@@ -317,6 +317,7 @@ contains
   subroutine calc_root_moist_stress_clm45default(bounds, &
        nlevgrnd, fn, filterp, rootfr_unf, &
        temperature_inst, soilstate_inst, energyflux_inst, waterstate_inst, &
+       soilhydrology_inst, &
        soil_water_retention_curve) 
     !
     ! DESCRIPTIONS
@@ -332,6 +333,7 @@ contains
     use SoilStateType        , only : soilstate_type
     use EnergyFluxType       , only : energyflux_type
     use WaterSTateType       , only : waterstate_type
+    use SoilHydrologyType    , only : soilhydrology_type
     use SoilWaterRetentionCurveMod, only : soil_water_retention_curve_type
     use PatchType            , only : patch
     use clm_varctl           , only : iulog, use_hydrstress
@@ -347,6 +349,7 @@ contains
     type(soilstate_type)   , intent(inout) :: soilstate_inst
     type(temperature_type) , intent(in)    :: temperature_inst
     type(waterstate_type)  , intent(inout) :: waterstate_inst
+    type(soilhydrology_type) , intent(in)    :: soilhydrology_inst
     class(soil_water_retention_curve_type), intent(in) :: soil_water_retention_curve
     !
     ! !LOCAL VARIABLES:
@@ -371,6 +374,9 @@ contains
          eff_porosity  => soilstate_inst%eff_porosity_col   , & ! Input:  [real(r8) (:,:) ]  effective porosity = porosity - vol_ice         
          rootfr        => soilstate_inst%rootfr_patch       , & ! Input:  [real(r8) (:,:) ]  fraction of roots in each soil layer
          rootr         => soilstate_inst%rootr_patch        , & ! Output: [real(r8) (:,:) ]  effective fraction of roots in each soil layer                      
+
+         altmax_ref_indx =>    soilstate_inst%altmax_ref_indx , & ! Input: [integer  (:)   ] index of frost table depth (/) [reference state]
+         pfflag          =>    soilhydrology_inst%pfflag      , & ! Input:  integer
 
          btran         => energyflux_inst%btran_patch       , & ! Output: [real(r8) (:)   ]  transpiration wetness factor (0 to 1) (integrated soil water stress)
          btran2        => energyflux_inst%btran2_patch      , & ! Output: [real(r8) (:)   ]  integrated soil water stress square
@@ -410,6 +416,10 @@ contains
                   rootr(p,j) = rootfr_unf(p,j)*rresis(p,j)
                end if
 
+               if((pfflag == 2 .or. pfflag == 4) .and. j > INT(altmax_ref_indx(p))) then
+                  rootr(p,j) = 0._r8
+               end if
+
                !it is possible to further separate out a btran function, but I will leave it for the moment, jyt
                if ( .not.(use_hydrstress) ) then
                   btran(p)    = btran(p) + max(rootr(p,j),0._r8)
@@ -443,7 +453,7 @@ contains
   !--------------------------------------------------------------------------------
   subroutine calc_root_moist_stress(bounds, nlevgrnd, fn, filterp, &
        canopystate_inst, energyflux_inst,  soilstate_inst, temperature_inst, &
-       waterstate_inst, soil_water_retention_curve)
+       waterstate_inst, soilhydrology_inst, soil_water_retention_curve)
     !
     ! DESCRIPTIONS
     ! compute the root water stress using different approaches
@@ -458,6 +468,7 @@ contains
     use TemperatureType , only : temperature_type
     use SoilStateType   , only : soilstate_type
     use WaterSTateType  , only : waterstate_type
+    use SoilHydrologyType , only : soilhydrology_type  
     use SoilWaterRetentionCurveMod, only : soil_water_retention_curve_type
     use abortutils      , only : endrun       
     !
@@ -472,6 +483,8 @@ contains
     type(soilstate_type)   , intent(inout) :: soilstate_inst
     type(temperature_type) , intent(in)    :: temperature_inst
     type(waterstate_type)  , intent(inout) :: waterstate_inst
+    type(soilhydrology_type) , intent(in)  :: soilhydrology_inst
+
     class(soil_water_retention_curve_type), intent(in) :: soil_water_retention_curve
     !
     ! !LOCAL VARIABLES:
@@ -508,6 +521,7 @@ contains
             temperature_inst=temperature_inst,          &
             soilstate_inst=soilstate_inst,              &
             waterstate_inst=waterstate_inst,            &
+            soilhydrology_inst=soilhydrology_inst,      &
             rootfr_unf=rootfr_unf(bounds%begp:bounds%endp,1:nlevgrnd), &
             soil_water_retention_curve=soil_water_retention_curve)
 
