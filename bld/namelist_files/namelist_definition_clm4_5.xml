@@ -2256,6 +2256,18 @@ Soil-hydrological response to permafrost degradation
 (deprecated -- will be removed)
 </entry>
 
+<entry id="pfinf" type="integer" category="clm_physics"
+       group="clm_soilhydrology_inparm" valid_values="0,1,2,3,4" >
+Treatment of soil ice (in pf reg) concerning infiltration
+(deprecated -- will be removed)
+</entry>
+
+<entry id="pfsatlev" type="real" category="clm_physics"
+       group="clm_soilhydrology_inparm" valid_values="" >
+Soil-hydrological response to permafrost degradation
+(deprecated -- will be removed)
+</entry>
+
 <!-- ========================================================================================  -->
 <!-- namelist elements associated with the CH4 Model                                           -->
 <!-- ========================================================================================  -->

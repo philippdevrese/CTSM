@@ -416,7 +416,7 @@ contains
                   rootr(p,j) = rootfr_unf(p,j)*rresis(p,j)
                end if
 
-               if((pfflag == 2 .or. pfflag == 4) .and. j > INT(altmax_ref_indx(p))) then
+               if((pfflag == 2) .and. j > INT(altmax_ref_indx(p))) then
                   rootr(p,j) = 0._r8
                end if
 

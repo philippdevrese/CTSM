@@ -601,15 +601,12 @@ contains
             zimm(c,j) = zi(c,j)*1.e3_r8
 
             ! calculate icefrac up here
-            if(pfflag == 2 .or. pfflag == 4) then
+            if(pfflag == 2) then
               vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
 
               icefrac(c,j) = min(1._r8,max(vol_ice(c,j), vol_ice_ref)/watsat(c,j))
             else
               icefrac(c,j) = min(1._r8,vol_ice(c,j)/watsat(c,j))
-            end if
-            if(pfflag == 4 .and. j > INT(altmax_ref_indx(c))) then
-              icefrac(c,j) = 1._r8
             end if
             vwc_liq(c,j) = max(h2osoi_liq(c,j),1.0e-6_r8)/(dz(c,j)*denh2o)
          end do
@@ -1153,6 +1150,8 @@ contains
     real(r8) :: vLiqRes(bounds%begc:bounds%endc,1:nlevsoi)   ! residual for the volumetric liquid water content (v/v)
 
     real(r8) :: dwat_temp
+    real(r8) :: over_saturation  
+
     !-----------------------------------------------------------------------
 
     associate(&
@@ -1165,7 +1164,7 @@ contains
 
          qcharge           =>    soilhydrology_inst%qcharge_col     , & ! Input:  [real(r8) (:)   ]  aquifer recharge rate (mm/s)                      
          zwt               =>    soilhydrology_inst%zwt_col         , & ! Input:  [real(r8) (:)   ]  water table depth (m)                             
-
+         watsat            =>    soilstate_inst%watsat_col          , & ! Input:  [real(r8) (:,:) ]  volumetric soil water at saturation (porosity) 
          smp_l             =>    soilstate_inst%smp_l_col           , & ! Input:  [real(r8) (:,:) ]  soil matrix potential [mm]                      
          hk_l              =>    soilstate_inst%hk_l_col            , & ! Input:  [real(r8) (:,:) ]  hydraulic conductivity (mm/s)                   
          h2osoi_ice        =>    waterstate_inst%h2osoi_ice_col     , & ! Input:  [real(r8) (:,:) ]  ice water (kg/m2)                               
@@ -1404,6 +1403,13 @@ contains
 !  save number of adaptive substeps used during time step
          nsubsteps(c) = nsubstep
 
+        ! check for over-saturated layers and move excess upward                                    
+         do j = nlayers,2,-1                                                                        
+            over_saturation   = max(h2osoi_liq(c,j)-(watsat(c,j)*m_to_mm*dz(c,j)),0._r8)            
+            h2osoi_liq(c,j)   = min(watsat(c,j)*m_to_mm*dz(c,j), h2osoi_liq(c,j))                    
+            h2osoi_liq(c,j-1) = h2osoi_liq(c,j-1) + over_saturation                                  
+         end do   
+
 ! check for negative moisture values
          do j = 2, nlayers
             if(h2osoi_liq(c,j) < -1e-6_r8) then
@@ -1521,15 +1527,12 @@ contains
 
 
          do j = 1, nlayers
-           if(pfflag == 2 .or. pfflag == 4) then
+           if(pfflag == 2) then
              vol_ice_ref = min(watsat(c,j), h2osoi_ice_ref(c,j)/(dz(c,j)*denice))
              icefrac_used(j) = max(icefrac(c,j), &
                                min(1._r8,vol_ice_ref/watsat(c,j)))
            else
              icefrac_used(j) = icefrac(c,j)
-           end if
-           if(pfflag == 4 .and. j > INT(altmax_ref_indx(c))) then
-             icefrac_used(j) = 1._r8
            end if
          end do
 

@@ -297,7 +297,7 @@ contains
     end do
     deallocate(gti)
 
-    allocate(soilice_in(begg:endg,nlevsoi))
+    allocate(soilice_in(begg:endg,1:nlevsoi))
     call ncd_io(ncid=ncid, varname='SOILICE_REF', flag='read', data=soilice_in, dim1name=grlnd, readvar=readvar)
     if (.not. readvar) then
       call endrun(msg=' ERROR: SOILICE_REF NOT on surfdata file'//errMsg(sourcefile, __LINE__))

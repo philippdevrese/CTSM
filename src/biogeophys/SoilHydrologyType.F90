@@ -19,6 +19,8 @@ Module SoilHydrologyType
      integer :: h2osfcflag              ! true => surface water is active (namelist)       
      integer :: origflag                ! used to control soil hydrology properties (namelist)    
      integer :: pfflag                  ! used to control drainage in permafrost region
+     integer :: pfinf                   ! used to control infiltration in permafrost region
+     real(r8):: pfsatlev                ! saturation level for water table in permafrost regions
 
      real(r8), pointer :: num_substeps_col   (:)    ! col adaptive timestep counter     
      ! NON-VIC
@@ -26,6 +28,7 @@ Module SoilHydrologyType
      real(r8), pointer :: zwt_col           (:)     ! col water table depth
      real(r8), pointer :: zwts_col          (:)     ! col water table depth, the shallower of the two water depths
      real(r8), pointer :: zwt_perched_col   (:)     ! col perched water table depth
+     real(r8), pointer :: zwt_ipf_col       (:)     ! col water table depth ignoring presence of permafrost
      real(r8), pointer :: wa_col            (:)     ! col water in the unconfined aquifer (mm)
      real(r8), pointer :: qcharge_col       (:)     ! col aquifer recharge rate (mm/s) 
      real(r8), pointer :: fracice_col       (:,:)   ! col fractional impermeability (-)
@@ -116,6 +119,7 @@ contains
     allocate(this%zwt_col           (begc:endc))                 ; this%zwt_col           (:)     = nan
     allocate(this%zwt_perched_col   (begc:endc))                 ; this%zwt_perched_col   (:)     = nan
     allocate(this%zwts_col          (begc:endc))                 ; this%zwts_col          (:)     = nan
+    allocate(this%zwt_ipf_col       (begc:endc))                 ; this%zwt_ipf_col       (:)     = nan
 
     allocate(this%wa_col            (begc:endc))                 ; this%wa_col            (:)     = nan
     allocate(this%qcharge_col       (begc:endc))                 ; this%qcharge_col       (:)     = nan
@@ -205,6 +209,11 @@ contains
          avgflag='A', long_name='perched water table depth (vegetated landunits only)', &
          ptr_col=this%zwt_perched_col, l2g_scale_type='veg')
 
+    this%zwt_ipf_col(begc:endc) = spval
+    call hist_addfld1d (fname='zwt_ipf',  units='m',  &
+         avgflag='A', long_name='water table depth ignoring perm-frost (vegetated landunits only)', &
+         ptr_col=this%zwt_ipf_col, l2g_scale_type='veg')
+
   end subroutine InitHistory
 
   !-----------------------------------------------------------------------
@@ -274,6 +283,14 @@ contains
        this%zwt_perched_col(bounds%begc:bounds%endc) = col%zi(bounds%begc:bounds%endc,nlevsoi)
     end if
 
+    call restartvar(ncid=ncid, flag=flag, varname='zwt_ipf', xtype=ncd_double,  & 
+         dim1name='column', &
+         long_name='water table depth ignoring perm-frost', units='m', &
+         interpinic_flag='interp', readvar=readvar, data=this%zwt_ipf_col)
+    if (flag == 'read' .and. .not. readvar) then
+       this%zwt_ipf_col(bounds%begc:bounds%endc) = col%zi(bounds%begc:bounds%endc,nlevsoi)
+    end if
+
   end subroutine Restart
 
    !-----------------------------------------------------------------------
@@ -298,20 +315,24 @@ contains
      ! !LOCAL VARIABLES:
      integer :: ierr                 ! error code
      integer :: unitn                ! unit for namelist file
-     integer :: origflag=0            !use to control soil hydraulic properties
-     integer :: h2osfcflag=1          !If surface water is active or not  
-     integer :: pfflag=0              ! use to control drainage in permafrost region
+     integer :: origflag=0           !use to control soil hydraulic properties
+     integer :: h2osfcflag=1         !If surface water is active or not  
+     integer :: pfflag=0             ! use to control drainage in permafrost region
+     integer :: pfinf=0              ! use to control inifltration in permafrost region
+     real(r8):: pfsatlev=0.9_r8      ! saturation level for water table in permafrost regions 
 
      character(len=32) :: subname = 'SoilHydrology_readnl'  ! subroutine name
      !-----------------------------------------------------------------------
 
-     namelist / clm_soilhydrology_inparm / h2osfcflag, origflag, pfflag
+     namelist / clm_soilhydrology_inparm / h2osfcflag, origflag, pfflag, pfinf, pfsatlev
 
      ! preset values
 
      origflag = 0          
      h2osfcflag = 1           
      pfflag = 0    
+     pfinf = 0  
+     pfsatlev = 0.9_r8
 
      if ( masterproc )then
 
@@ -334,10 +355,14 @@ contains
      call shr_mpi_bcast(h2osfcflag, mpicom)
      call shr_mpi_bcast(origflag,   mpicom)
      call shr_mpi_bcast(pfflag,   mpicom)
+     call shr_mpi_bcast(pfinf,   mpicom)
+     call shr_mpi_bcast(pfsatlev,   mpicom)
 
      this%h2osfcflag = h2osfcflag
      this%origflag   = origflag
-     this%pfflag   = pfflag
+     this%pfflag     = pfflag
+     this%pfinf      = pfinf
+     this%pfsatlev   = pfsatlev
 
    end subroutine ReadNL
 

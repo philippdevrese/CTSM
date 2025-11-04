@@ -80,6 +80,7 @@ module SoilStateType
      real(r8), pointer :: h2osoi_ice_col_ref   (:,:) ! ice content reference state
 
      real(r8), pointer :: altmax_ref_indx      (:)   ! altmax index reference state
+
  
    contains
 
@@ -180,7 +181,7 @@ contains
     allocate(this%watres_col           (begc:endc,1:nlevgrnd))          ; this%watres_col           (:,:) = nan
 
     allocate(this%h2osoi_ice_col_ref   (begc:endc,1:nlevgrnd))          ; this%h2osoi_ice_col_ref   (:,:) = 0._r8
-    allocate(this%altmax_ref_indx      (begc:endc))                     ; this%altmax_ref_indx      (:)   = nlevgrnd 
+    allocate(this%altmax_ref_indx      (begc:endc))                     ; this%altmax_ref_indx      (:)   = nlevgrnd
 
   end subroutine InitAllocate
 
@@ -435,7 +436,8 @@ contains
          interpinic_flag='interp', readvar=readvar, data=this%altmax_ref_indx)
 
     call restartvar(ncid=ncid, flag=flag, varname='SOILICE_REF', xtype=ncd_double,  &
-         dim1name='column', long_name='soil ice reference', units='kg/m2', &
+         dim1name='column', dim2name='levgrnd', switchdim=.true., &
+         long_name='soil ice reference', units='kg/m2', &
          interpinic_flag='interp', readvar=readvar, data=this%h2osoi_ice_col_ref)
     
   end subroutine Restart

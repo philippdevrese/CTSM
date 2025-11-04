@@ -191,7 +191,7 @@ contains
 
       call Infiltration(bounds, num_hydrologyc, filter_hydrologyc, num_urbanc, filter_urbanc,&
            energyflux_inst, soilhydrology_inst, soilstate_inst, temperature_inst, &
-           waterflux_inst, waterstate_inst)
+           waterflux_inst, waterstate_inst, canopystate_inst)
 
       call Compute_EffecRootFrac_And_VertTranSink(bounds, num_hydrologyc, &
            filter_hydrologyc, soilstate_inst, canopystate_inst, waterflux_inst, energyflux_inst)
@@ -219,7 +219,7 @@ contains
 
          call ThetaBasedWaterTable(bounds, num_hydrologyc, filter_hydrologyc, &
               num_urbanc, filter_urbanc, soilhydrology_inst, soilstate_inst, &
-              waterstate_inst, waterflux_inst) 
+              waterstate_inst, waterflux_inst, canopystate_inst) 
 
          call RenewCondensation(bounds, num_hydrologyc, filter_hydrologyc, &
               num_urbanc, filter_urbanc,&

@@ -113,6 +113,8 @@ contains
        end if
     end do
 
+    soilhydrology_inst%zwt_ipf_col(bounds%begc:bounds%endc) = soilhydrology_inst%zwt_col(bounds%begc:bounds%endc)
+
     ! Initialize VIC variables
 
     if (use_vichydro) then
