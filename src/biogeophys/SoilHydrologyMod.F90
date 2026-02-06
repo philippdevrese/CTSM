@@ -429,7 +429,6 @@ contains
           i_0              =>    soilhydrology_inst%i_0_col          , & ! Input:  [real(r8) (:)   ]  column average soil moisture in top VIC layers (mm)
           h2osfcflag       =>    soilhydrology_inst%h2osfcflag       , & ! Input:  logical
           pfflag           =>    soilhydrology_inst%pfflag           , & ! Input:  integer
-          pfinf            =>    soilhydrology_inst%pfinf            , & ! Input:  integer
           icefrac          =>    soilhydrology_inst%icefrac_col       & ! Output: [real(r8) (:,:) ]  fraction of ice                                 
           )
 
@@ -496,10 +495,6 @@ contains
              else
                 qinmax=(1._r8 - fsat(c)) * minval(10._r8**(-e_ice*(icefrac(c,1:3)))*hksat(c,1:3))
              end if
-             
-             if ((pfinf /= 0) .and. (altmax_ref_indx(c) < nlevsoi)) then
-               qinmax=(1._r8 - fsat(c))*minval(hksat(c,1:3))
-             end if
 
              qflx_infl_excess(c) = max(0._r8,qflx_in_soil(c) -  (1.0_r8 - frac_h2osfc(c))*qinmax)
 
@@ -518,12 +513,8 @@ contains
                  h2osfc(c) = 0.0
                  qflx_h2osfc_drain(c)= 0._r8
                else
-                 if (pfinf /= 0) then
-                   qflx_h2osfc_drain(c)=min(frac_h2osfc(c)*minval(hksat(c,1:3)),h2osfc(c)/dtime)
-                 else
-                   qflx_h2osfc_drain(c)=min(frac_h2osfc(c)*minval(10._r8**(-e_ice*(icefrac(c,1:3)))*hksat(c,1:3)),h2osfc(c)/dtime)
-                 end if
-             endif
+                 qflx_h2osfc_drain(c)=min(frac_h2osfc(c)*minval(10._r8**(-e_ice*(icefrac(c,1:3)))*hksat(c,1:3)),h2osfc(c)/dtime)
+               endif
 
                if(h2osfcflag==0) then 
                  qflx_h2osfc_drain(c)= max(0._r8,h2osfc(c)/dtime) !ensure no h2osfc
@@ -552,6 +543,7 @@ contains
                end if
                h2osfc_pf_fact = 1._r8 + MAX(0._r8, 0.2_r8 * (3._r8-z(c,altmax_indx_used))/3._r8)
                h2osfc_thresh_used = h2osfc_thresh(c) * h2osfc_pf_fact
+  
                ! limit runoff to value of storage above S(pc)
                if(h2osfc(c) >= h2osfc_thresh_used .and. h2osfcflag/=0) then
                  ! spatially variable k_wet
@@ -2009,7 +2001,6 @@ contains
           altmax_ref_indx    =>    soilstate_inst%altmax_ref_indx        , & ! Input: [integer  (:)   ] index of frost table depth (/) [reference state]
           altmax_lastyear_indx => canopystate_inst%altmax_lastyear_indx_col , & ! Input:  [real(r8) (:)   ]  prior year maximum annual depth of thaw
           altmax_indx          => canopystate_inst%altmax_indx_col          , & ! Input:  [real(r8) (:)   ]  maximum annual depth of thaw
-          pfsatlev           =>    soilhydrology_inst%pfsatlev           , & ! Input:  real(r8)
           zwt_ipf            =>    soilhydrology_inst%zwt_ipf_col        , & ! Output: [real(r8) (:)   ]  water table depth ignoring permafrost (m) 
           zwt                =>    soilhydrology_inst%zwt_col              & ! Output: [real(r8) (:)   ]  water table depth (m)                             
           )
@@ -2027,13 +2018,8 @@ contains
 
           ! locate water table from bottom up starting at bottom of soil column
           ! sat_lev is an arbitrary saturation level used to determine water table
-
-          if (altmax_ref_indx(c) < nlevsoi) then
-            sat_lev=pfsatlev
-          else
-            sat_lev=0.9
-          end if
-
+          sat_lev=0.9
+          
 ! First diagnose water table ignoring permafrost
 
           wt_start=nbedrock(c)

@@ -17,10 +17,8 @@ Module SoilHydrologyType
   type, public :: soilhydrology_type
 
      integer :: h2osfcflag              ! true => surface water is active (namelist)       
-     integer :: origflag                ! used to control soil hydrology properties (namelist)    
+     integer :: origflag                ! used to control soil hydrology properties (namelist)
      integer :: pfflag                  ! used to control drainage in permafrost region
-     integer :: pfinf                   ! used to control infiltration in permafrost region
-     real(r8):: pfsatlev                ! saturation level for water table in permafrost regions
 
      real(r8), pointer :: num_substeps_col   (:)    ! col adaptive timestep counter     
      ! NON-VIC
@@ -316,23 +314,18 @@ contains
      integer :: ierr                 ! error code
      integer :: unitn                ! unit for namelist file
      integer :: origflag=0           !use to control soil hydraulic properties
-     integer :: h2osfcflag=1         !If surface water is active or not  
+     integer :: h2osfcflag=1         !If surface water is active or not
      integer :: pfflag=0             ! use to control drainage in permafrost region
-     integer :: pfinf=0              ! use to control inifltration in permafrost region
-     real(r8):: pfsatlev=0.9_r8      ! saturation level for water table in permafrost regions 
-
      character(len=32) :: subname = 'SoilHydrology_readnl'  ! subroutine name
      !-----------------------------------------------------------------------
 
-     namelist / clm_soilhydrology_inparm / h2osfcflag, origflag, pfflag, pfinf, pfsatlev
+     namelist / clm_soilhydrology_inparm / h2osfcflag, origflag, pfflag
 
      ! preset values
 
      origflag = 0          
-     h2osfcflag = 1           
-     pfflag = 0    
-     pfinf = 0  
-     pfsatlev = 0.9_r8
+     h2osfcflag = 1
+     pfflag = 0
 
      if ( masterproc )then
 
@@ -355,14 +348,10 @@ contains
      call shr_mpi_bcast(h2osfcflag, mpicom)
      call shr_mpi_bcast(origflag,   mpicom)
      call shr_mpi_bcast(pfflag,   mpicom)
-     call shr_mpi_bcast(pfinf,   mpicom)
-     call shr_mpi_bcast(pfsatlev,   mpicom)
 
      this%h2osfcflag = h2osfcflag
      this%origflag   = origflag
      this%pfflag     = pfflag
-     this%pfinf      = pfinf
-     this%pfsatlev   = pfsatlev
 
    end subroutine ReadNL
 
